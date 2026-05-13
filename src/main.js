@@ -6,7 +6,6 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
-const HOST_CODE = import.meta.env.VITE_HOST_CODE || '4321';
 const MAX_POINTS_PER_QUESTION = 1000;
 const QUESTION_SECONDS = 10;
 const APP_NAME = 'skspr or tiktok';
@@ -133,12 +132,9 @@ function renderHomeView() {
         </div>
         <div class="choices-grid">
           <div class="card">
-            <h2>Host</h2>
-            <label>
-              Host code
-              <input type="password" id="host-code-input" placeholder="4321" />
-            </label>
-            <button id="host-mode-btn">Enter host mode</button>
+            <h2>Create a host session</h2>
+            <p class="info-text">Start a room and share the game PIN with players.</p>
+            <button id="host-mode-btn">Create host session</button>
           </div>
           <div class="card">
             <h2>Player</h2>
@@ -492,13 +488,8 @@ function getSortedPlayers() {
 
 function attachHomeHandlers() {
   document.getElementById('host-mode-btn').addEventListener('click', () => {
-    const code = document.getElementById('host-code-input').value.trim();
-    if (code === HOST_CODE) {
-      state.mode = 'host';
-      render();
-    } else {
-      setMessage(`Invalid host code. Try ${HOST_CODE}.`, 'error');
-    }
+    state.mode = 'host';
+    render();
   });
 
   document.getElementById('join-party-btn').addEventListener('click', async () => {
