@@ -240,11 +240,13 @@ function renderPlayerView() {
         ? 'Leaderboard'
         : 'Game complete';
 
-  const mainContent = isReview
+  const leaderboardContent = isReview
     ? renderLeaderboardSection(player)
     : party.status === 'finished'
-      ? `<div class="end-screen">${renderPlayerRankSummary(player)}<h2>Quiz complete</h2>${renderLeaderboardChart()}</div>`
-      : `
+      ? `<div class="end-screen player-leaderboard-screen">${renderPlayerRankSummary(player)}<h2>Quiz complete</h2>${renderLeaderboardChart()}</div>`
+      : '';
+
+  const questionContent = `
         <div class="question-box question-box-player">
           ${renderQuestionPrompt(isAnswering ? currentQuestion : null, party.status === 'lobby' ? 'Waiting to start...' : 'Game over')}
         </div>
@@ -261,13 +263,15 @@ function renderPlayerView() {
       <div class="kahoot-grid player-grid ${isFullWidth ? 'single-panel-grid' : ''}">
         <section class="stage-card">
           ${renderTopbar('Player view', party?.join_code, player.name, 'Connected', isQuestionActive)}
-          <div class="question-stage">
-            <div class="question-header">
-              <span>${escapeHtml(statusMessage)}</span>
-              ${isAnswering ? renderQuestionTimer(timeLeft) : ''}
+          ${leaderboardContent || `
+            <div class="question-stage">
+              <div class="question-header">
+                <span>${escapeHtml(statusMessage)}</span>
+                ${isAnswering ? renderQuestionTimer(timeLeft) : ''}
+              </div>
+              ${questionContent}
             </div>
-            ${mainContent}
-          </div>
+          `}
         </section>
 
         ${isFullWidth ? '' : `<aside class="participant-panel">
