@@ -2,9 +2,17 @@ import './styles.css';
 import { createClient } from '@supabase/supabase-js';
 
 const app = document.getElementById('app');
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_PROXY_URL = import.meta.env.VITE_SUPABASE_PROXY_URL ?? getDefaultSupabaseProxyUrl();
 const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  {
+    global: {
+      fetch: supabaseProxyFetch,
+    },
+  }
 );
 const MAX_POINTS_PER_QUESTION = 1000;
 const QUESTION_SECONDS = 10;
@@ -50,7 +58,7 @@ function setMessage(message, type = 'info') {
 }
 
 function render() {
-  if (!supabase || !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  if (!supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
     renderInto(`
       <section class="screen error-screen">
         <h1>${APP_NAME}</h1>
@@ -79,6 +87,28 @@ function render() {
   }
 
   renderInto(`${messageHtml}${renderHomeView()}`, attachHomeHandlers);
+}
+
+function supabaseProxyFetch(input, init) {
+  const requestUrl = typeof input === 'string'
+    ? new URL(input, window.location.origin)
+    : new URL(input.url);
+
+  if (SUPABASE_URL) {
+    const supabaseUrl = new URL(SUPABASE_URL);
+    if (SUPABASE_PROXY_URL && requestUrl.origin === supabaseUrl.origin && requestUrl.pathname.startsWith('/rest/v1')) {
+      const proxyUrl = new URL(`${SUPABASE_PROXY_URL}${requestUrl.pathname}`, window.location.origin);
+      proxyUrl.search = requestUrl.search;
+      return fetch(proxyUrl, init);
+    }
+  }
+
+  return fetch(input, init);
+}
+
+function getDefaultSupabaseProxyUrl() {
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1' ? '' : '/api/supabase';
 }
 
 function renderInto(html, attachHandlers) {
@@ -793,7 +823,6 @@ async function createParty() {
 
 async function refreshPartyRelatedData(partyId) {
   await refreshPartyData(partyId);
-  await subscribeToParty(partyId);
 }
 
 async function loadParty(partyId) {
@@ -1158,61 +1187,14 @@ async function restoreSession() {
     if (!playerError && player) {
       state.player = player;
       state.mode = 'inParty';
-      await subscribeToParty(party.id);
       return;
     }
   }
 
   state.mode = 'host';
-  await subscribeToParty(party.id);
-}
-
-async function subscribeToParty(partyId) {
-  cleanupSubscriptions();
-
-  const partyChannel = supabase.channel(`party-${partyId}`);
-  partyChannel.on(
-    'postgres_changes',
-    { event: 'UPDATE', schema: 'public', table: 'parties', filter: `id=eq.${partyId}` },
-    async () => {
-      await loadParty(partyId);
-      render();
-    }
-  );
-  await partyChannel.subscribe();
-  state.partyChannel = partyChannel;
-
-  const playersChannel = supabase.channel(`players-${partyId}`);
-  playersChannel.on(
-    'postgres_changes',
-    { event: '*', schema: 'public', table: 'players', filter: `party_id=eq.${partyId}` },
-    async () => {
-      await loadPlayers(partyId);
-      render();
-    }
-  );
-  await playersChannel.subscribe();
-  state.playersChannel = playersChannel;
-
-  const answersChannel = supabase.channel(`answers-${partyId}`);
-  answersChannel.on(
-    'postgres_changes',
-    { event: '*', schema: 'public', table: 'answers', filter: `party_id=eq.${partyId}` },
-    async () => {
-      await loadAnswers(partyId);
-      render();
-    }
-  );
-  await answersChannel.subscribe();
-  state.answersChannel = answersChannel;
 }
 
 function cleanupSubscriptions() {
-  [state.partyChannel, state.playersChannel, state.answersChannel].forEach((channel) => {
-    if (channel && channel.unsubscribe) {
-      channel.unsubscribe().catch(() => {});
-    }
-  });
   state.partyChannel = null;
   state.playersChannel = null;
   state.answersChannel = null;
