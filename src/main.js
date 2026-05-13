@@ -23,6 +23,7 @@ const state = {
   previousRanks: new Map(),
   previousScores: new Map(),
   animatedLeaderboardKeys: new Set(),
+  submittingAnswerKeys: new Set(),
   message: null,
   partyChannel: null,
   playersChannel: null,
@@ -34,6 +35,7 @@ const state = {
 window.addEventListener('load', async () => {
   await loadQuestions();
   await restoreSession();
+  installAnswerCapture();
   startTimerTick();
   startPolling();
   render();
@@ -572,21 +574,45 @@ function attachPlayerHandlers() {
       state.previousRanks.clear();
       state.previousScores.clear();
       state.animatedLeaderboardKeys.clear();
+      state.submittingAnswerKeys.clear();
       render();
     });
   }
 
   document.querySelectorAll('.tile[data-choice]').forEach((button) => {
-    if (button.classList.contains('disabled')) return;
-    const submit = async (event) => {
-      event.preventDefault();
-      if (button.dataset.submitting === 'true') return;
-      button.dataset.submitting = 'true';
-      button.classList.add('disabled');
-      await submitAnswer(Number(button.dataset.choice));
-    };
+    button.addEventListener('click', handleAnswerPress, { capture: true });
+  });
+}
 
-    button.addEventListener('pointerdown', submit, { passive: false });
+function installAnswerCapture() {
+  app.addEventListener('pointerdown', handleAnswerPress, { capture: true, passive: false });
+  app.addEventListener('mousedown', handleAnswerPress, { capture: true });
+}
+
+function handleAnswerPress(event) {
+  const button = event.target.closest?.('.tile[data-choice]');
+  if (!button || !app.contains(button)) return;
+  if (state.mode !== 'inParty' || !isAnsweringPhase(state.party)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (button.classList.contains('disabled')) return;
+  const choiceIndex = Number(button.dataset.choice);
+  if (!Number.isFinite(choiceIndex)) return;
+
+  const answerKey = getAnswerKey(state.player?.id, state.party?.current_question, state.party?.id);
+  if (state.submittingAnswerKeys.has(answerKey)) return;
+
+  state.submittingAnswerKeys.add(answerKey);
+  button.dataset.submitting = 'true';
+  button.classList.add('selected', 'disabled');
+  button.parentElement?.querySelectorAll('.tile[data-choice]').forEach((tile) => {
+    if (tile !== button) tile.classList.add('disabled');
+  });
+
+  submitAnswer(choiceIndex).finally(() => {
+    state.submittingAnswerKeys.delete(answerKey);
   });
 }
 
@@ -843,6 +869,7 @@ async function joinParty(code, name) {
   state.player = player;
   state.optimisticAnswers.clear();
   state.optimisticScores.clear();
+  state.submittingAnswerKeys.clear();
   state.previousRanks.clear();
   state.previousScores.clear();
   state.animatedLeaderboardKeys.clear();
