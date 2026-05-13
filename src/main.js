@@ -18,6 +18,8 @@ const state = {
   questions: [],
   partyPlayers: [],
   partyAnswers: [],
+  optimisticAnswers: new Map(),
+  optimisticScores: new Map(),
   previousRanks: new Map(),
   previousScores: new Map(),
   animatedLeaderboardKeys: new Set(),
@@ -467,6 +469,8 @@ function attachHostHandlers() {
       state.party = null;
       state.partyPlayers = [];
       state.partyAnswers = [];
+      state.optimisticAnswers.clear();
+      state.optimisticScores.clear();
       state.previousRanks.clear();
       state.previousScores.clear();
       state.animatedLeaderboardKeys.clear();
@@ -518,6 +522,8 @@ function attachPlayerHandlers() {
       state.player = null;
       state.partyPlayers = [];
       state.partyAnswers = [];
+      state.optimisticAnswers.clear();
+      state.optimisticScores.clear();
       state.previousRanks.clear();
       state.previousScores.clear();
       state.animatedLeaderboardKeys.clear();
@@ -698,7 +704,10 @@ async function loadPlayers(partyId) {
     return;
   }
 
-  state.partyPlayers = data || [];
+  state.partyPlayers = (data || []).map((player) => {
+    const optimisticScore = state.optimisticScores.get(player.id);
+    return optimisticScore === undefined ? player : { ...player, score: optimisticScore };
+  });
   if (state.player) {
     const refreshedPlayer = state.partyPlayers.find((player) => player.id === state.player.id);
     if (refreshedPlayer) state.player = refreshedPlayer;
@@ -716,7 +725,13 @@ async function loadAnswers(partyId) {
     return;
   }
 
-  state.partyAnswers = data || [];
+  const serverAnswers = data || [];
+  const serverKeys = new Set(serverAnswers.map((answer) => getAnswerKey(answer.player_id, answer.question_index, answer.party_id)));
+  const pendingAnswers = [...state.optimisticAnswers.entries()]
+    .filter(([key]) => !serverKeys.has(key))
+    .map(([, answer]) => answer);
+
+  state.partyAnswers = [...serverAnswers, ...pendingAnswers];
 }
 
 async function joinParty(code, name) {
@@ -745,6 +760,8 @@ async function joinParty(code, name) {
 
   state.party = party;
   state.player = player;
+  state.optimisticAnswers.clear();
+  state.optimisticScores.clear();
   state.previousRanks.clear();
   state.previousScores.clear();
   state.animatedLeaderboardKeys.clear();
@@ -873,6 +890,28 @@ async function submitAnswer(choiceIndex) {
   const isCorrect = question.answer === choiceIndex;
   const answeredAt = new Date();
   const pointsAwarded = calculatePointsAwarded(state.party, isCorrect, answeredAt.getTime());
+  const answerKey = getAnswerKey(state.player.id, questionIndex, state.party.id);
+  const currentScore = Number(state.player.score || 0);
+  const optimisticScore = currentScore + pointsAwarded;
+  const optimisticAnswer = {
+    id: `optimistic-${answerKey}`,
+    party_id: state.party.id,
+    player_id: state.player.id,
+    question_index: questionIndex,
+    choice_index: choiceIndex,
+    is_correct: isCorrect,
+    answered_at: answeredAt.toISOString(),
+    optimistic: true,
+  };
+
+  state.optimisticAnswers.set(answerKey, optimisticAnswer);
+  state.partyAnswers.push(optimisticAnswer);
+  state.optimisticScores.set(state.player.id, optimisticScore);
+  state.player = { ...state.player, score: optimisticScore };
+  state.partyPlayers = state.partyPlayers.map((player) =>
+    player.id === state.player.id ? { ...player, score: optimisticScore } : player
+  );
+  render();
 
   const { data: answer, error: answerError } = await supabase
     .from('answers')
@@ -891,34 +930,58 @@ async function submitAnswer(choiceIndex) {
 
   if (answerError) {
     console.error(answerError);
+    rollbackOptimisticAnswer(answerKey, state.player.id, currentScore);
     setMessage(answerError.code === '23505' ? 'You have already answered this question.' : 'Failed to submit answer.', 'error');
+    await refreshPartyData(state.party.id);
+    render();
     return;
   }
 
+  state.optimisticAnswers.delete(answerKey);
+  state.partyAnswers = state.partyAnswers
+    .filter((item) => item.id !== optimisticAnswer.id)
+    .concat(answer);
+
   if (isCorrect) {
-    const currentScore = Number(state.player.score || 0);
-    const updatedScore = currentScore + pointsAwarded;
     const { error: playerUpdateError } = await supabase
       .from('players')
-      .update({ score: updatedScore })
+      .update({ score: optimisticScore })
       .eq('id', state.player.id);
 
     if (!playerUpdateError) {
-      state.player.score = updatedScore;
+      state.optimisticScores.delete(state.player.id);
+      state.player.score = optimisticScore;
       state.partyPlayers = state.partyPlayers.map((player) =>
-        player.id === state.player.id ? { ...player, score: updatedScore } : player
+        player.id === state.player.id ? { ...player, score: optimisticScore } : player
       );
       setMessage(`Correct. +${pointsAwarded} points.`, 'success');
     } else {
       console.warn(playerUpdateError);
+      rollbackOptimisticAnswer(answerKey, state.player.id, currentScore, false);
       setMessage('Answer submitted. Score update failed.', 'warning');
     }
   } else {
+    state.optimisticScores.delete(state.player.id);
     setMessage('Incorrect answer. Keep going.', 'info');
   }
 
-  state.partyAnswers.push(answer);
   render();
+}
+
+function getAnswerKey(playerId, questionIndex, partyId = state.party?.id) {
+  return `${partyId}:${playerId}:${questionIndex}`;
+}
+
+function rollbackOptimisticAnswer(answerKey, playerId, previousScore, removeAnswer = true) {
+  state.optimisticAnswers.delete(answerKey);
+  state.optimisticScores.delete(playerId);
+  if (removeAnswer) {
+    state.partyAnswers = state.partyAnswers.filter((answer) => getAnswerKey(answer.player_id, answer.question_index, answer.party_id) !== answerKey);
+  }
+  state.player = state.player?.id === playerId ? { ...state.player, score: previousScore } : state.player;
+  state.partyPlayers = state.partyPlayers.map((player) =>
+    player.id === playerId ? { ...player, score: previousScore } : player
+  );
 }
 
 async function restoreSession() {
