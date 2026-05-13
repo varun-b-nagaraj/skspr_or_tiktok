@@ -7,7 +7,7 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 const HOST_CODE = import.meta.env.VITE_HOST_CODE || '4321';
-const MAX_POINTS_PER_QUESTION = 10;
+const MAX_POINTS_PER_QUESTION = 1000;
 const QUESTION_SECONDS = 10;
 const APP_NAME = 'skspr or tiktok';
 
