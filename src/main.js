@@ -130,13 +130,14 @@ function renderHostView() {
   const timeLeft = getTimeRemaining(party);
   const isQuestionActive = party?.status === 'active' && !isReview;
   const isFullWidth = isQuestionActive || isReview || party?.status === 'finished';
+  const hasQuestionImage = Boolean(currentQuestion?.image);
 
   const mainContent = party?.status === 'lobby'
     ? renderLobbySection(party)
     : isReview
       ? renderLeaderboardSection()
       : `
-      <div class="question-stage">
+      <div class="question-stage ${hasQuestionImage ? 'has-image' : ''}">
         <div class="question-header">
           <div>
             <span>${party ? `Question ${currentNumber} / ${questions.length}` : 'No active party'}</span>
@@ -145,8 +146,9 @@ function renderHostView() {
           ${renderQuestionTimer(timeLeft)}
         </div>
         <div class="question-box">
-          ${renderQuestionPrompt(currentQuestion, 'Create a party to begin.')}
+          ${renderQuestionText(currentQuestion, 'Create a party to begin.')}
         </div>
+        ${renderQuestionImage(currentQuestion)}
         <div class="tile-row">
           <button class="tile tile-red" disabled>${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
           <button class="tile tile-blue" disabled>${escapeHtml(currentQuestion?.choices?.[1] ?? 'TikTok')}</button>
@@ -233,6 +235,7 @@ function renderPlayerView() {
   const timeLeft = getTimeRemaining(party);
   const isQuestionActive = party?.status === 'active' && !isReview;
   const isFullWidth = isQuestionActive || isReview || party.status === 'finished';
+  const hasQuestionImage = Boolean(currentQuestion?.image);
 
   const statusMessage = party.status === 'lobby'
     ? 'Waiting for the host to start'
@@ -250,8 +253,9 @@ function renderPlayerView() {
 
   const questionContent = `
         <div class="question-box question-box-player">
-          ${renderQuestionPrompt(isAnswering ? currentQuestion : null, party.status === 'lobby' ? 'Waiting to start...' : 'Game over')}
+          ${renderQuestionText(isAnswering ? currentQuestion : null, party.status === 'lobby' ? 'Waiting to start...' : 'Game over')}
         </div>
+        ${isAnswering ? renderQuestionImage(currentQuestion) : ''}
         ${isAnswering ? `
           <div class="answer-column question-answer-row">
             <button class="tile tile-red ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 0 ? 'selected' : ''}" data-choice="0">${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
@@ -266,7 +270,7 @@ function renderPlayerView() {
         <section class="stage-card">
           ${renderTopbar('Player view', party?.join_code, player.name, 'Connected', isQuestionActive)}
           ${leaderboardContent || `
-            <div class="question-stage">
+            <div class="question-stage ${hasQuestionImage ? 'has-image' : ''}">
               <div class="question-header">
                 <span>${escapeHtml(statusMessage)}</span>
                 ${isAnswering ? renderQuestionTimer(timeLeft) : ''}
@@ -294,17 +298,13 @@ function renderPlayerView() {
   `;
 }
 
-function renderQuestionPrompt(question, fallbackText) {
-  const imageHtml = question?.image
-    ? `<img class="question-image" src="${escapeHtml(question.image)}" alt="" />`
-    : '';
+function renderQuestionText(question, fallbackText) {
+  return `<h2>${escapeHtml(question?.question || fallbackText)}</h2>`;
+}
 
-  return `
-    <div class="question-prompt ${imageHtml ? 'with-image' : ''}">
-      <h2>${escapeHtml(question?.question || fallbackText)}</h2>
-      ${imageHtml}
-    </div>
-  `;
+function renderQuestionImage(question) {
+  if (!question?.image) return '';
+  return `<div class="question-image-wrap"><img class="question-image" src="${escapeHtml(question.image)}" alt="" /></div>`;
 }
 
 function renderTopbar(title, code, stat, label, compact = false) {
@@ -321,9 +321,11 @@ function renderTopbar(title, code, stat, label, compact = false) {
 }
 
 function renderHostActions(party, isReview) {
+  const canSkipToLeaderboard = party?.status === 'active' && !isReview && allPlayersAnswered();
   const buttons = [
     !party ? '<button id="create-party-btn">Create party</button>' : '',
     party?.status === 'lobby' ? '<button id="start-game-btn">Next</button>' : '',
+    canSkipToLeaderboard ? '<button id="skip-question-btn">Skip to leaderboard</button>' : '',
     party?.status === 'active' && isReview ? '<button id="next-question-btn">Next</button>' : '',
     party?.status === 'finished' ? '<button id="restart-party-btn">Restart party</button>' : '',
   ].filter(Boolean).join('');
@@ -488,6 +490,9 @@ function attachHostHandlers() {
   const nextBtn = document.getElementById('next-question-btn');
   if (nextBtn) nextBtn.addEventListener('click', nextQuestion);
 
+  const skipBtn = document.getElementById('skip-question-btn');
+  if (skipBtn) skipBtn.addEventListener('click', skipToLeaderboard);
+
   const restartBtn = document.getElementById('restart-party-btn');
   if (restartBtn) restartBtn.addEventListener('click', restartParty);
 }
@@ -551,7 +556,13 @@ function escapeHtml(str) {
 
 function extractQuestions(party) {
   if (!party?.questions) return state.questions;
-  return Array.isArray(party.questions) ? party.questions : [];
+  if (!Array.isArray(party.questions)) return [];
+
+  return party.questions.map((question) => {
+    if (question.image) return question;
+    const latestQuestion = state.questions.find((item) => item.question === question.question);
+    return latestQuestion?.image ? { ...question, image: latestQuestion.image } : question;
+  });
 }
 
 async function loadQuestions() {
@@ -636,6 +647,16 @@ async function maybeAdvanceReviewState() {
       state.animatedLeaderboardKeys.delete(leaderboardKey);
     }
   }
+}
+
+function allPlayersAnswered() {
+  if (!state.partyPlayers.length || !state.party) return false;
+  const answeredPlayerIds = new Set(
+    state.partyAnswers
+      .filter((answer) => answer.question_index === state.party.current_question)
+      .map((answer) => answer.player_id)
+  );
+  return answeredPlayerIds.size >= state.partyPlayers.length;
 }
 
 function randomCode(length = 4) {
@@ -796,6 +817,30 @@ async function startGame() {
 
   state.party = data;
   setMessage('Game started. Players can answer now.', 'success');
+  render();
+}
+
+async function skipToLeaderboard() {
+  if (!state.party || state.party.status !== 'active' || isReviewPhase(state.party)) return;
+
+  const { data, error } = await supabase
+    .from('parties')
+    .update({ review_started_at: new Date().toISOString() })
+    .eq('id', state.party.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error(error);
+    setMessage('Unable to show leaderboard.', 'error');
+    return;
+  }
+
+  state.party = data;
+  const leaderboardKey = getLeaderboardKey();
+  if (leaderboardKey) {
+    state.animatedLeaderboardKeys.delete(leaderboardKey);
+  }
   render();
 }
 

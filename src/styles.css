@@ -262,6 +262,10 @@ label {
   overflow: hidden;
 }
 
+.question-active .question-stage.has-image {
+  grid-template-rows: auto auto minmax(0, 1fr) minmax(110px, 22vh);
+}
+
 .lobby-stage {
   min-height: 0;
   display: grid;
@@ -389,29 +393,33 @@ label {
   line-height: 1.05;
 }
 
-.question-prompt {
-  width: 100%;
-  min-height: 0;
-  display: grid;
-  gap: 1rem;
-  align-items: center;
+.question-stage.has-image .question-box {
+  justify-content: center;
+  padding-block: clamp(0.65rem, 1.6vw, 1.35rem);
 }
 
-.question-prompt.with-image {
-  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+.question-stage.has-image .question-box h2 {
+  font-size: clamp(1.55rem, 3vw, 3rem);
+  text-align: center;
+}
+
+.question-image-wrap {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ee;
 }
 
 .question-image {
   width: 100%;
-  max-height: 36vh;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   object-fit: contain;
   border-radius: 8px;
-  background: #f8fafc;
-}
-
-.question-active .question-image {
-  max-height: 100%;
 }
 
 .tile-row,
@@ -456,6 +464,11 @@ label {
   min-height: 0;
   overflow: hidden;
   font-size: clamp(1.8rem, 4vw, 4.5rem);
+}
+
+.question-active .question-stage.has-image .tile {
+  font-size: clamp(1.25rem, 2.4vw, 2.5rem);
+  padding: 0.9rem 1rem;
 }
 
 .tile:hover:not(.disabled) {
@@ -866,14 +879,6 @@ label {
 
   .question-box {
     min-height: 34vh;
-  }
-
-  .question-prompt.with-image {
-    grid-template-columns: 1fr;
-  }
-
-  .question-image {
-    max-height: 24vh;
   }
 
   .tile-row {
