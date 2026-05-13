@@ -137,6 +137,17 @@ label {
   gap: 1rem;
 }
 
+.question-active {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.question-only-grid {
+  height: calc(100vh - 2rem);
+  min-height: 0;
+  grid-template-columns: 1fr;
+}
+
 .stage-card,
 .participant-panel {
   background: rgba(255, 255, 255, 0.94);
@@ -151,6 +162,11 @@ label {
   grid-template-rows: auto 1fr auto;
   gap: 1rem;
   padding: 1rem;
+}
+
+.question-active .stage-card {
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
 }
 
 .participant-panel {
@@ -238,6 +254,12 @@ label {
   min-height: 0;
   display: grid;
   gap: 1rem;
+}
+
+.question-active .question-stage {
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr) minmax(140px, 28vh);
+  overflow: hidden;
 }
 
 .lobby-stage {
@@ -348,8 +370,17 @@ label {
   border: 1px solid #dbe3ee;
 }
 
+.question-active .question-box {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .question-box-player {
   min-height: 42vh;
+}
+
+.question-active .question-box-player {
+  min-height: 0;
 }
 
 .question-box h2 {
@@ -372,6 +403,12 @@ label {
   grid-template-columns: 1fr;
 }
 
+.question-active .tile-row,
+.question-active .question-answer-row {
+  min-height: 0;
+  grid-template-columns: 1fr 1fr;
+}
+
 .tile {
   width: 100%;
   min-height: 128px;
@@ -382,6 +419,11 @@ label {
   font-weight: 900;
   text-align: left;
   transition: transform 150ms ease, filter 150ms ease, opacity 150ms ease;
+}
+
+.question-active .tile {
+  height: 100%;
+  min-height: 0;
 }
 
 .tile:hover:not(.disabled) {
@@ -719,6 +761,11 @@ label {
     grid-template-columns: 1fr;
   }
 
+  .question-only-grid {
+    height: calc(100vh - 1.5rem);
+    min-height: 0;
+  }
+
   .participant-panel {
     display: none;
   }
@@ -738,6 +785,11 @@ label {
 
   .tile-row {
     grid-template-columns: 1fr;
+  }
+
+  .question-active .tile-row,
+  .question-active .question-answer-row {
+    grid-template-columns: 1fr 1fr;
   }
 
   .leaderboard-row {

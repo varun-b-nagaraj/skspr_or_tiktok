@@ -126,6 +126,7 @@ function renderHostView() {
   const isAnswering = isAnsweringPhase(party);
   const isReview = isReviewPhase(party);
   const timeLeft = getTimeRemaining(party);
+  const isQuestionActive = party?.status === 'active' && !isReview;
 
   const mainContent = party?.status === 'lobby'
     ? renderLobbySection(party)
@@ -151,20 +152,15 @@ function renderHostView() {
     `;
 
   return `
-    <section class="screen kahoot-screen">
-      <div class="kahoot-grid">
+    <section class="screen kahoot-screen ${isQuestionActive ? 'question-active' : ''}">
+      <div class="kahoot-grid ${isQuestionActive ? 'question-only-grid' : ''}">
         <section class="stage-card">
-          ${renderTopbar('Host view', party?.join_code, party?.status === 'lobby' ? state.partyPlayers.length : currentNumber, party?.status === 'lobby' ? 'Players' : 'Question')}
+          ${renderTopbar('Host view', party?.join_code, party?.status === 'lobby' ? state.partyPlayers.length : currentNumber, party?.status === 'lobby' ? 'Players' : 'Question', isQuestionActive)}
           ${mainContent}
-          <div class="kahoot-actions">
-            ${!party ? '<button id="create-party-btn">Create party</button>' : ''}
-            ${party?.status === 'lobby' ? '<button id="start-game-btn">Next</button>' : ''}
-            ${party?.status === 'active' && isReview ? '<button id="next-question-btn">Next</button>' : ''}
-            ${party?.status === 'finished' ? '<button id="restart-party-btn">Restart party</button>' : ''}
-          </div>
+          ${renderHostActions(party, isReview)}
         </section>
 
-        <aside class="participant-panel">
+        ${isQuestionActive ? '' : `<aside class="participant-panel">
           <div class="panel-header">
             <div>
               <h2>Players</h2>
@@ -172,7 +168,7 @@ function renderHostView() {
             </div>
           </div>
           <ul class="player-list">${renderCompactPlayerRows() || '<li>No players yet</li>'}</ul>
-        </aside>
+        </aside>`}
       </div>
       <button class="leave-icon ${party ? '' : 'hidden-control'}" id="back-home-btn" title="Leave party" aria-label="Leave party">×</button>
     </section>
@@ -232,6 +228,7 @@ function renderPlayerView() {
   const isAnswering = isAnsweringPhase(party);
   const isReview = isReviewPhase(party);
   const timeLeft = getTimeRemaining(party);
+  const isQuestionActive = party?.status === 'active' && !isReview;
 
   const statusMessage = party.status === 'lobby'
     ? 'Waiting for the host to start'
@@ -251,7 +248,7 @@ function renderPlayerView() {
             <h2>${isAnswering && currentQuestion ? escapeHtml(currentQuestion.question) : party.status === 'lobby' ? 'Waiting to start...' : 'Game over'}</h2>
           </div>
           ${isAnswering ? `
-            <div class="answer-column">
+            <div class="answer-column question-answer-row">
               <button class="tile tile-red ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 0 ? 'selected' : ''}" data-choice="0">${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
               <button class="tile tile-blue ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 1 ? 'selected' : ''}" data-choice="1">${escapeHtml(currentQuestion?.choices?.[1] ?? 'TikTok')}</button>
             </div>
@@ -260,10 +257,10 @@ function renderPlayerView() {
       `;
 
   return `
-    <section class="screen kahoot-screen">
-      <div class="kahoot-grid player-grid">
+    <section class="screen kahoot-screen ${isQuestionActive ? 'question-active' : ''}">
+      <div class="kahoot-grid player-grid ${isQuestionActive ? 'question-only-grid' : ''}">
         <section class="stage-card">
-          ${renderTopbar('Player view', party?.join_code, player.name, 'Connected')}
+          ${renderTopbar('Player view', party?.join_code, player.name, 'Connected', isQuestionActive)}
           <div class="question-stage">
             <div class="question-header">
               <span>${escapeHtml(statusMessage)}</span>
@@ -273,7 +270,7 @@ function renderPlayerView() {
           </div>
         </section>
 
-        <aside class="participant-panel">
+        ${isQuestionActive ? '' : `<aside class="participant-panel">
           <div class="panel-header participant-header">
             <div>
               <span class="participant-count">${state.partyPlayers.length}</span>
@@ -284,14 +281,14 @@ function renderPlayerView() {
             <h3>Leaderboard</h3>
             <ul class="player-list">${renderCompactPlayerRows() || '<li>No scores yet</li>'}</ul>
           </div>
-        </aside>
+        </aside>`}
       </div>
       <button class="leave-icon" id="exit-party-icon" title="Leave party" aria-label="Leave party">×</button>
     </section>
   `;
 }
 
-function renderTopbar(title, code, stat, label) {
+function renderTopbar(title, code, stat, label, compact = false) {
   return `
     <div class="kahoot-topbar">
       <div class="chip game-pin"><span>${escapeHtml(code || '----')}</span><small>PIN</small></div>
@@ -299,9 +296,20 @@ function renderTopbar(title, code, stat, label) {
         <span class="game-label">Quiz</span>
         <h1>${escapeHtml(title)}</h1>
       </div>
-      <div class="chip answer-chip"><span>${escapeHtml(stat ?? 0)}</span><small>${escapeHtml(label)}</small></div>
+      ${compact ? '' : `<div class="chip answer-chip"><span>${escapeHtml(stat ?? 0)}</span><small>${escapeHtml(label)}</small></div>`}
     </div>
   `;
+}
+
+function renderHostActions(party, isReview) {
+  const buttons = [
+    !party ? '<button id="create-party-btn">Create party</button>' : '',
+    party?.status === 'lobby' ? '<button id="start-game-btn">Next</button>' : '',
+    party?.status === 'active' && isReview ? '<button id="next-question-btn">Next</button>' : '',
+    party?.status === 'finished' ? '<button id="restart-party-btn">Restart party</button>' : '',
+  ].filter(Boolean).join('');
+
+  return buttons ? `<div class="kahoot-actions">${buttons}</div>` : '';
 }
 
 function renderQuestionTimer(timeLeft) {
@@ -315,8 +323,8 @@ function renderQuestionTimer(timeLeft) {
 
 function renderLeaderboardSection() {
   const leaderboardKey = getLeaderboardKey();
-  const shouldAnimate = leaderboardKey && !state.animatedLeaderboardKeys.has(leaderboardKey);
-  if (leaderboardKey) {
+  const shouldAnimate = Boolean(leaderboardKey && !state.animatedLeaderboardKeys.has(leaderboardKey));
+  if (shouldAnimate) {
     state.animatedLeaderboardKeys.add(leaderboardKey);
   }
 
@@ -582,6 +590,10 @@ async function maybeAdvanceReviewState() {
 
   if (!error) {
     state.party = data;
+    const leaderboardKey = getLeaderboardKey();
+    if (leaderboardKey) {
+      state.animatedLeaderboardKeys.delete(leaderboardKey);
+    }
   }
 }
 
