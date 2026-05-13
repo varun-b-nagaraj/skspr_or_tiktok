@@ -487,6 +487,9 @@ label {
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+.leaderboard-row.animate {
   animation: rowEnter 360ms ease both;
 }
 
@@ -529,6 +532,9 @@ label {
   height: 100%;
   border-radius: 4px;
   background: linear-gradient(90deg, #0f766e, #22c55e);
+}
+
+.leaderboard-bar span.animate {
   animation: barGrow 560ms ease both;
 }
 
@@ -557,11 +563,11 @@ label {
   animation: scorePop 700ms ease both;
 }
 
-.move-up {
+.leaderboard-row.animate.move-up {
   animation-name: moveUp;
 }
 
-.move-down {
+.leaderboard-row.animate.move-down {
   animation-name: moveDown;
 }
 

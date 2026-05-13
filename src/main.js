@@ -7,7 +7,7 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 const HOST_CODE = import.meta.env.VITE_HOST_CODE || '4321';
-const POINTS_PER_CORRECT_ANSWER = 1000;
+const MAX_POINTS_PER_QUESTION = 10;
 const QUESTION_SECONDS = 10;
 const APP_NAME = 'skspr or tiktok';
 
@@ -20,6 +20,7 @@ const state = {
   partyAnswers: [],
   previousRanks: new Map(),
   previousScores: new Map(),
+  animatedLeaderboardKeys: new Set(),
   message: null,
   partyChannel: null,
   playersChannel: null,
@@ -313,11 +314,17 @@ function renderQuestionTimer(timeLeft) {
 }
 
 function renderLeaderboardSection() {
+  const leaderboardKey = getLeaderboardKey();
+  const shouldAnimate = leaderboardKey && !state.animatedLeaderboardKeys.has(leaderboardKey);
+  if (leaderboardKey) {
+    state.animatedLeaderboardKeys.add(leaderboardKey);
+  }
+
   return `
-    <div class="leaderboard-section slide-in">
+    <div class="leaderboard-section ${shouldAnimate ? 'slide-in' : ''}">
       <div class="section-kicker">Leaderboard</div>
       <h2>Top performers</h2>
-      ${renderLeaderboardChart()}
+      ${renderLeaderboardChart(shouldAnimate)}
     </div>
   `;
 }
@@ -328,7 +335,7 @@ function renderCompactPlayerRows() {
     .join('');
 }
 
-function renderLeaderboardChart() {
+function renderLeaderboardChart(shouldAnimate = false) {
   const players = getSortedPlayers();
   if (!players.length) return '<div class="empty-state">No players yet</div>';
 
@@ -341,15 +348,20 @@ function renderLeaderboardChart() {
       (answer) => answer.player_id === player.id && answer.question_index === state.party?.current_question
     );
     const moved = previousRank === undefined ? 'new' : previousRank > index ? 'up' : previousRank < index ? 'down' : 'same';
-    const gained = Math.max(0, score - previousScore, currentAnswer?.is_correct ? POINTS_PER_CORRECT_ANSWER : 0);
+    const questionGain = currentAnswer
+      ? calculatePointsAwarded(state.party, currentAnswer.is_correct, new Date(currentAnswer.answered_at).getTime())
+      : 0;
+    const gained = shouldAnimate
+      ? Math.max(0, score - previousScore, questionGain)
+      : 0;
     const width = Math.max(7, Math.round((score / maxScore) * 100));
 
     return `
-      <li class="leaderboard-row move-${moved}" style="--bar-width:${width}%">
+      <li class="leaderboard-row ${shouldAnimate ? `animate move-${moved}` : ''}" style="--bar-width:${width}%">
         <span class="leaderboard-rank">${index + 1}</span>
         <div class="leaderboard-player">
           <div class="leaderboard-name">${escapeHtml(player.name)}</div>
-          <div class="leaderboard-bar"><span></span></div>
+          <div class="leaderboard-bar"><span class="${shouldAnimate ? 'animate' : ''}"></span></div>
         </div>
         <div class="leaderboard-score">
           ${gained ? `<span class="score-gain">+${gained.toLocaleString()}</span>` : ''}
@@ -366,6 +378,11 @@ function renderLeaderboardChart() {
   });
 
   return `<ol class="leaderboard-chart">${rows}</ol>`;
+}
+
+function getLeaderboardKey() {
+  if (!state.party) return null;
+  return `${state.party.id}:${state.party.current_question}`;
 }
 
 function getSortedPlayers() {
@@ -409,6 +426,7 @@ function attachHostHandlers() {
       state.partyAnswers = [];
       state.previousRanks.clear();
       state.previousScores.clear();
+      state.animatedLeaderboardKeys.clear();
       localStorage.removeItem('party_id');
       render();
     });
@@ -459,6 +477,7 @@ function attachPlayerHandlers() {
       state.partyAnswers = [];
       state.previousRanks.clear();
       state.previousScores.clear();
+      state.animatedLeaderboardKeys.clear();
       render();
     });
   }
@@ -514,10 +533,20 @@ function getTimeRemaining(party) {
   return Math.max(0, QUESTION_SECONDS - elapsed);
 }
 
+function calculatePointsAwarded(party, isCorrect, answeredAt = Date.now()) {
+  if (!isCorrect || !party?.question_started_at) return 0;
+
+  const startedAt = new Date(party.question_started_at).getTime();
+  const elapsedSeconds = Math.max(0, (answeredAt - startedAt) / 1000);
+  const remainingRatio = Math.max(0, (QUESTION_SECONDS - elapsedSeconds) / QUESTION_SECONDS);
+  return Math.floor(MAX_POINTS_PER_QUESTION * remainingRatio);
+}
+
 function startTimerTick() {
   if (state.tickInterval) return;
   state.tickInterval = setInterval(() => {
     if (state.party?.status === 'active') {
+      if (!isAnsweringPhase(state.party)) return;
       render();
     }
   }, 250);
@@ -584,6 +613,7 @@ async function createParty() {
   state.mode = 'host';
   state.previousRanks.clear();
   state.previousScores.clear();
+  state.animatedLeaderboardKeys.clear();
   localStorage.setItem('party_id', String(data.id));
   await refreshPartyRelatedData(data.id);
   setMessage(`Party created. Share code ${data.join_code}.`, 'success');
@@ -670,6 +700,7 @@ async function joinParty(code, name) {
   state.player = player;
   state.previousRanks.clear();
   state.previousScores.clear();
+  state.animatedLeaderboardKeys.clear();
   localStorage.setItem('party_id', String(party.id));
   localStorage.setItem('player_id', String(player.id));
   localStorage.setItem('player_name', player.name);
@@ -793,7 +824,8 @@ async function submitAnswer(choiceIndex) {
   }
 
   const isCorrect = question.answer === choiceIndex;
-  const pointsAwarded = isCorrect ? POINTS_PER_CORRECT_ANSWER : 0;
+  const answeredAt = new Date();
+  const pointsAwarded = calculatePointsAwarded(state.party, isCorrect, answeredAt.getTime());
 
   const { data: answer, error: answerError } = await supabase
     .from('answers')
@@ -804,7 +836,7 @@ async function submitAnswer(choiceIndex) {
         question_index: questionIndex,
         choice_index: choiceIndex,
         is_correct: isCorrect,
-        answered_at: new Date().toISOString(),
+        answered_at: answeredAt.toISOString(),
       },
     ])
     .select()
