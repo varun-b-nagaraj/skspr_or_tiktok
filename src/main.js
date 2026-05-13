@@ -578,10 +578,15 @@ function attachPlayerHandlers() {
 
   document.querySelectorAll('.tile[data-choice]').forEach((button) => {
     if (button.classList.contains('disabled')) return;
-    button.addEventListener('click', async () => {
+    const submit = async (event) => {
+      event.preventDefault();
+      if (button.dataset.submitting === 'true') return;
+      button.dataset.submitting = 'true';
       button.classList.add('disabled');
       await submitAnswer(Number(button.dataset.choice));
-    });
+    };
+
+    button.addEventListener('pointerdown', submit, { passive: false });
   });
 }
 
@@ -647,6 +652,10 @@ function startTimerTick() {
   state.tickInterval = setInterval(() => {
     if (state.party?.status === 'active') {
       if (!isAnsweringPhase(state.party)) return;
+      if (state.mode === 'inParty') {
+        updateTimerDisplay();
+        return;
+      }
       render();
     }
   }, 250);
@@ -660,8 +669,19 @@ function startPolling() {
     if (state.mode === 'host') {
       await maybeAdvanceReviewState();
     }
+    if (state.mode === 'inParty' && isAnsweringPhase(state.party)) {
+      updateTimerDisplay();
+      return;
+    }
     render();
   }, 500);
+}
+
+function updateTimerDisplay() {
+  const timerValue = document.querySelector('.question-timer span');
+  if (timerValue && state.party) {
+    timerValue.textContent = String(getTimeRemaining(state.party));
+  }
 }
 
 async function refreshPartyData(partyId) {

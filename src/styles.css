@@ -456,6 +456,8 @@ label {
   line-height: 1.1;
   text-align: left;
   transition: transform 150ms ease, filter 150ms ease, opacity 150ms ease;
+  touch-action: manipulation;
+  user-select: none;
   white-space: normal;
   overflow-wrap: anywhere;
 }
