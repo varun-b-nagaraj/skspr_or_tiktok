@@ -389,6 +389,31 @@ label {
   line-height: 1.05;
 }
 
+.question-prompt {
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  gap: 1rem;
+  align-items: center;
+}
+
+.question-prompt.with-image {
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+}
+
+.question-image {
+  width: 100%;
+  max-height: 36vh;
+  min-height: 0;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.question-active .question-image {
+  max-height: 100%;
+}
+
 .tile-row,
 .answer-column {
   display: grid;
@@ -781,6 +806,14 @@ label {
 
   .question-box {
     min-height: 34vh;
+  }
+
+  .question-prompt.with-image {
+    grid-template-columns: 1fr;
+  }
+
+  .question-image {
+    max-height: 24vh;
   }
 
   .tile-row {

@@ -142,7 +142,7 @@ function renderHostView() {
           ${renderQuestionTimer(timeLeft)}
         </div>
         <div class="question-box">
-          <h2>${currentQuestion ? escapeHtml(currentQuestion.question) : 'Create a party to begin.'}</h2>
+          ${renderQuestionPrompt(currentQuestion, 'Create a party to begin.')}
         </div>
         <div class="tile-row">
           <button class="tile tile-red" disabled>${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
@@ -245,7 +245,7 @@ function renderPlayerView() {
       : `
         <div class="question-stage">
           <div class="question-box question-box-player">
-            <h2>${isAnswering && currentQuestion ? escapeHtml(currentQuestion.question) : party.status === 'lobby' ? 'Waiting to start...' : 'Game over'}</h2>
+            ${renderQuestionPrompt(isAnswering ? currentQuestion : null, party.status === 'lobby' ? 'Waiting to start...' : 'Game over')}
           </div>
           ${isAnswering ? `
             <div class="answer-column question-answer-row">
@@ -285,6 +285,19 @@ function renderPlayerView() {
       </div>
       <button class="leave-icon" id="exit-party-icon" title="Leave party" aria-label="Leave party">×</button>
     </section>
+  `;
+}
+
+function renderQuestionPrompt(question, fallbackText) {
+  const imageHtml = question?.image
+    ? `<img class="question-image" src="${escapeHtml(question.image)}" alt="" />`
+    : '';
+
+  return `
+    <div class="question-prompt ${imageHtml ? 'with-image' : ''}">
+      <h2>${escapeHtml(question?.question || fallbackText)}</h2>
+      ${imageHtml}
+    </div>
   `;
 }
 

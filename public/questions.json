@@ -61,7 +61,7 @@
   },
   {
     "question": "Thou hast no more brain than I have in mine elbows",
-    "image": null,
+    "image": "/brain.png",
     "choices": ["Skspr", "TikTok"],
     "answer": 0
   },
@@ -79,7 +79,7 @@
   },
   {
     "question": "LIGHTING ROUND: SMASH OR PASS",
-    "image": null,
+    "image": "/madhav.jpeg",
     "choices": ["Smash", "Pass"],
     "answer": 0
   }
