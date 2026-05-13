@@ -50,11 +50,11 @@ function setMessage(message, type = 'info') {
 
 function render() {
   if (!supabase || !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-    app.innerHTML = `
+    renderInto(`
       <section class="screen error-screen">
         <h1>${APP_NAME}</h1>
         <p class="error-text">Missing Supabase environment variables. Copy <code>.env.example</code> to <code>.env</code> and add your values.</p>
-      </section>`;
+      </section>`);
     return;
   }
 
@@ -63,25 +63,61 @@ function render() {
     : '';
 
   if (state.mode === 'host') {
-    app.innerHTML = `${messageHtml}${renderHostView()}`;
-    attachHostHandlers();
+    renderInto(`${messageHtml}${renderHostView()}`, attachHostHandlers);
     return;
   }
 
   if (state.mode === 'join') {
-    app.innerHTML = `${messageHtml}${renderJoinView()}`;
-    attachJoinHandlers();
+    renderInto(`${messageHtml}${renderJoinView()}`, attachJoinHandlers);
     return;
   }
 
   if (state.mode === 'inParty') {
-    app.innerHTML = `${messageHtml}${renderPlayerView()}`;
-    attachPlayerHandlers();
+    renderInto(`${messageHtml}${renderPlayerView()}`, attachPlayerHandlers);
     return;
   }
 
-  app.innerHTML = `${messageHtml}${renderHomeView()}`;
-  attachHomeHandlers();
+  renderInto(`${messageHtml}${renderHomeView()}`, attachHomeHandlers);
+}
+
+function renderInto(html, attachHandlers) {
+  const inputSnapshot = captureInputSnapshot();
+  app.innerHTML = html;
+  if (attachHandlers) attachHandlers();
+  restoreInputSnapshot(inputSnapshot);
+}
+
+function captureInputSnapshot() {
+  const active = document.activeElement;
+  const inputs = [...app.querySelectorAll('input[id]')];
+  return {
+    activeId: active?.tagName === 'INPUT' ? active.id : null,
+    selectionStart: active?.tagName === 'INPUT' ? active.selectionStart : null,
+    selectionEnd: active?.tagName === 'INPUT' ? active.selectionEnd : null,
+    values: new Map(inputs.map((input) => [input.id, input.value])),
+  };
+}
+
+function restoreInputSnapshot(snapshot) {
+  if (!snapshot) return;
+
+  snapshot.values.forEach((value, id) => {
+    const input = document.getElementById(id);
+    if (input) input.value = value;
+  });
+
+  if (!snapshot.activeId) return;
+  const activeInput = document.getElementById(snapshot.activeId);
+  if (!activeInput) return;
+
+  activeInput.focus({ preventScroll: true });
+  if (snapshot.selectionStart !== null && snapshot.selectionEnd !== null) {
+    try {
+      activeInput.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd);
+    } catch {
+      // Some input types do not support selection ranges.
+    }
+  }
 }
 
 function renderHomeView() {

@@ -50,6 +50,7 @@ input {
   padding: 0.85rem 1rem;
   margin-top: 0.45rem;
   pointer-events: auto;
+  touch-action: manipulation;
   user-select: text;
 }
 
