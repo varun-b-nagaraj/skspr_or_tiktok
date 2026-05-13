@@ -322,11 +322,15 @@ function renderTopbar(title, code, stat, label, compact = false) {
 
 function renderHostActions(party, isReview) {
   const canSkipToLeaderboard = party?.status === 'active' && !isReview && allPlayersAnswered();
+  const questions = extractQuestions(party);
+  const isFinalQuestionLeaderboard = party?.status === 'active'
+    && isReview
+    && party.current_question >= questions.length - 1;
   const buttons = [
     !party ? '<button id="create-party-btn">Create party</button>' : '',
     party?.status === 'lobby' ? '<button id="start-game-btn">Next</button>' : '',
     canSkipToLeaderboard ? '<button id="skip-question-btn">Skip to leaderboard</button>' : '',
-    party?.status === 'active' && isReview ? '<button id="next-question-btn">Next</button>' : '',
+    party?.status === 'active' && isReview && !isFinalQuestionLeaderboard ? '<button id="next-question-btn">Next</button>' : '',
     party?.status === 'finished' ? '<button id="restart-party-btn">Restart party</button>' : '',
   ].filter(Boolean).join('');
 
