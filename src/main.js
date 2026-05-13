@@ -243,17 +243,15 @@ function renderPlayerView() {
     : party.status === 'finished'
       ? `<div class="end-screen"><h2>Quiz complete</h2>${renderLeaderboardChart()}</div>`
       : `
-        <div class="question-stage">
-          <div class="question-box question-box-player">
-            ${renderQuestionPrompt(isAnswering ? currentQuestion : null, party.status === 'lobby' ? 'Waiting to start...' : 'Game over')}
-          </div>
-          ${isAnswering ? `
-            <div class="answer-column question-answer-row">
-              <button class="tile tile-red ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 0 ? 'selected' : ''}" data-choice="0">${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
-              <button class="tile tile-blue ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 1 ? 'selected' : ''}" data-choice="1">${escapeHtml(currentQuestion?.choices?.[1] ?? 'TikTok')}</button>
-            </div>
-          ` : ''}
+        <div class="question-box question-box-player">
+          ${renderQuestionPrompt(isAnswering ? currentQuestion : null, party.status === 'lobby' ? 'Waiting to start...' : 'Game over')}
         </div>
+        ${isAnswering ? `
+          <div class="answer-column question-answer-row">
+            <button class="tile tile-red ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 0 ? 'selected' : ''}" data-choice="0">${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
+            <button class="tile tile-blue ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 1 ? 'selected' : ''}" data-choice="1">${escapeHtml(currentQuestion?.choices?.[1] ?? 'TikTok')}</button>
+          </div>
+        ` : ''}
       `;
 
   return `
