@@ -127,6 +127,7 @@ function renderHostView() {
   const isReview = isReviewPhase(party);
   const timeLeft = getTimeRemaining(party);
   const isQuestionActive = party?.status === 'active' && !isReview;
+  const isFullWidth = isQuestionActive || isReview || party?.status === 'finished';
 
   const mainContent = party?.status === 'lobby'
     ? renderLobbySection(party)
@@ -153,14 +154,14 @@ function renderHostView() {
 
   return `
     <section class="screen kahoot-screen ${isQuestionActive ? 'question-active' : ''}">
-      <div class="kahoot-grid ${isQuestionActive ? 'question-only-grid' : ''}">
+      <div class="kahoot-grid ${isFullWidth ? 'single-panel-grid' : ''}">
         <section class="stage-card">
           ${renderTopbar('Host view', party?.join_code, party?.status === 'lobby' ? state.partyPlayers.length : currentNumber, party?.status === 'lobby' ? 'Players' : 'Question', isQuestionActive)}
           ${mainContent}
           ${renderHostActions(party, isReview)}
         </section>
 
-        ${isQuestionActive ? '' : `<aside class="participant-panel">
+        ${isFullWidth ? '' : `<aside class="participant-panel">
           <div class="panel-header">
             <div>
               <h2>Players</h2>
@@ -229,6 +230,7 @@ function renderPlayerView() {
   const isReview = isReviewPhase(party);
   const timeLeft = getTimeRemaining(party);
   const isQuestionActive = party?.status === 'active' && !isReview;
+  const isFullWidth = isQuestionActive || isReview || party.status === 'finished';
 
   const statusMessage = party.status === 'lobby'
     ? 'Waiting for the host to start'
@@ -239,9 +241,9 @@ function renderPlayerView() {
         : 'Game complete';
 
   const mainContent = isReview
-    ? renderLeaderboardSection()
+    ? renderLeaderboardSection(player)
     : party.status === 'finished'
-      ? `<div class="end-screen"><h2>Quiz complete</h2>${renderLeaderboardChart()}</div>`
+      ? `<div class="end-screen">${renderPlayerRankSummary(player)}<h2>Quiz complete</h2>${renderLeaderboardChart()}</div>`
       : `
         <div class="question-box question-box-player">
           ${renderQuestionPrompt(isAnswering ? currentQuestion : null, party.status === 'lobby' ? 'Waiting to start...' : 'Game over')}
@@ -256,7 +258,7 @@ function renderPlayerView() {
 
   return `
     <section class="screen kahoot-screen ${isQuestionActive ? 'question-active' : ''}">
-      <div class="kahoot-grid player-grid ${isQuestionActive ? 'question-only-grid' : ''}">
+      <div class="kahoot-grid player-grid ${isFullWidth ? 'single-panel-grid' : ''}">
         <section class="stage-card">
           ${renderTopbar('Player view', party?.join_code, player.name, 'Connected', isQuestionActive)}
           <div class="question-stage">
@@ -268,7 +270,7 @@ function renderPlayerView() {
           </div>
         </section>
 
-        ${isQuestionActive ? '' : `<aside class="participant-panel">
+        ${isFullWidth ? '' : `<aside class="participant-panel">
           <div class="panel-header participant-header">
             <div>
               <span class="participant-count">${state.partyPlayers.length}</span>
@@ -332,7 +334,7 @@ function renderQuestionTimer(timeLeft) {
   `;
 }
 
-function renderLeaderboardSection() {
+function renderLeaderboardSection(player = null) {
   const leaderboardKey = getLeaderboardKey();
   const shouldAnimate = Boolean(leaderboardKey && !state.animatedLeaderboardKeys.has(leaderboardKey));
   if (shouldAnimate) {
@@ -342,8 +344,26 @@ function renderLeaderboardSection() {
   return `
     <div class="leaderboard-section ${shouldAnimate ? 'slide-in' : ''}">
       <div class="section-kicker">Leaderboard</div>
+      ${player ? renderPlayerRankSummary(player) : ''}
       <h2>Top performers</h2>
       ${renderLeaderboardChart(shouldAnimate)}
+    </div>
+  `;
+}
+
+function renderPlayerRankSummary(player) {
+  const players = getSortedPlayers();
+  const rank = players.findIndex((item) => item.id === player?.id) + 1;
+  const total = players.length;
+  const score = Number(player?.score || 0).toLocaleString();
+
+  if (!rank) return '';
+
+  return `
+    <div class="rank-summary">
+      <span>Your rank</span>
+      <strong>#${rank}</strong>
+      <small>${score} points · ${total} player${total === 1 ? '' : 's'}</small>
     </div>
   `;
 }
