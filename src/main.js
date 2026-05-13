@@ -188,8 +188,8 @@ function renderHostView() {
         </div>
         ${renderQuestionImage(currentQuestion)}
         <div class="tile-row">
-          <button class="tile tile-red" disabled>${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
-          <button class="tile tile-blue" disabled>${escapeHtml(currentQuestion?.choices?.[1] ?? 'TikTok')}</button>
+          <button class="tile tile-red ${getChoiceLengthClass(currentQuestion?.choices?.[0])}" disabled>${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
+          <button class="tile tile-blue ${getChoiceLengthClass(currentQuestion?.choices?.[1])}" disabled>${escapeHtml(currentQuestion?.choices?.[1] ?? 'TikTok')}</button>
         </div>
       </div>
     `;
@@ -296,8 +296,8 @@ function renderPlayerView() {
         ${isAnswering ? renderQuestionImage(currentQuestion) : ''}
         ${isAnswering ? `
           <div class="answer-column question-answer-row">
-            <button class="tile tile-red ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 0 ? 'selected' : ''}" data-choice="0">${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
-            <button class="tile tile-blue ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 1 ? 'selected' : ''}" data-choice="1">${escapeHtml(currentQuestion?.choices?.[1] ?? 'TikTok')}</button>
+            <button class="tile tile-red ${getChoiceLengthClass(currentQuestion?.choices?.[0])} ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 0 ? 'selected' : ''}" data-choice="0">${escapeHtml(currentQuestion?.choices?.[0] ?? 'Skspr')}</button>
+            <button class="tile tile-blue ${getChoiceLengthClass(currentQuestion?.choices?.[1])} ${hasAnswered ? 'disabled' : ''} ${selectedAnswer?.choice_index === 1 ? 'selected' : ''}" data-choice="1">${escapeHtml(currentQuestion?.choices?.[1] ?? 'TikTok')}</button>
           </div>
         ` : ''}
       `;
@@ -343,6 +343,14 @@ function renderQuestionText(question, fallbackText) {
 function renderQuestionImage(question) {
   if (!question?.image) return '';
   return `<div class="question-image-wrap"><img class="question-image" src="${escapeHtml(question.image)}" alt="" /></div>`;
+}
+
+function getChoiceLengthClass(choice = '') {
+  const length = String(choice).length;
+  if (length >= 34) return 'tile-text-xs';
+  if (length >= 24) return 'tile-text-sm';
+  if (length >= 16) return 'tile-text-md';
+  return '';
 }
 
 function renderTopbar(title, code, stat, label, compact = false) {

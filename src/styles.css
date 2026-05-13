@@ -462,16 +462,52 @@ label {
   overflow-wrap: anywhere;
 }
 
+.tile-text-md {
+  font-size: clamp(1rem, 2vw, 1.65rem);
+}
+
+.tile-text-sm {
+  font-size: clamp(0.92rem, 1.65vw, 1.35rem);
+}
+
+.tile-text-xs {
+  font-size: clamp(0.82rem, 1.35vw, 1.12rem);
+}
+
 .question-active .tile {
   height: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
   font-size: clamp(1.8rem, 4vw, 4.5rem);
+}
+
+.question-active .tile-text-md {
+  font-size: clamp(1.3rem, 2.8vw, 3rem);
+}
+
+.question-active .tile-text-sm {
+  font-size: clamp(1.05rem, 2.2vw, 2.3rem);
+}
+
+.question-active .tile-text-xs {
+  font-size: clamp(0.9rem, 1.8vw, 1.8rem);
 }
 
 .question-active .question-stage.has-image .tile {
   font-size: clamp(1.25rem, 2.4vw, 2.5rem);
   padding: 0.9rem 1rem;
+}
+
+.question-active .question-stage.has-image .tile-text-md {
+  font-size: clamp(1rem, 2vw, 2rem);
+}
+
+.question-active .question-stage.has-image .tile-text-sm {
+  font-size: clamp(0.9rem, 1.6vw, 1.6rem);
+}
+
+.question-active .question-stage.has-image .tile-text-xs {
+  font-size: clamp(0.78rem, 1.25vw, 1.25rem);
 }
 
 .tile:hover:not(.disabled) {
