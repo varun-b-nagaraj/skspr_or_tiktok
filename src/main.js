@@ -691,14 +691,26 @@ function startPolling() {
   if (state.pollInterval) return;
   state.pollInterval = setInterval(async () => {
     if (!state.party?.id) return;
+    const previousQuestion = state.party.current_question;
+    const previousReviewStartedAt = state.party.review_started_at;
+    const wasShowingQuestion = Boolean(document.querySelector('.question-active'));
+
     await refreshPartyData(state.party.id);
     if (state.mode === 'host') {
       await maybeAdvanceReviewState();
     }
-    if (state.mode === 'inParty' && isAnsweringPhase(state.party)) {
+
+    const canPatchTimerOnly = state.mode === 'inParty'
+      && isAnsweringPhase(state.party)
+      && wasShowingQuestion
+      && previousQuestion === state.party.current_question
+      && !previousReviewStartedAt;
+
+    if (canPatchTimerOnly) {
       updateTimerDisplay();
       return;
     }
+
     render();
   }, 500);
 }
